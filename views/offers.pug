@@ -1,187 +1,112 @@
-let express = require('express');
+html
+    head
+        link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css", integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ", crossorigin="anonymous")
+        script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js", integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe", crossorigin="anonymous")
+    body(style="background-color:cornsilk")
+                          
+        div(class="container")
+            div(class="bg-dark px-2 mx-0 d-flex flex-row justify-content-between align-items-center")
+                h5.px-3.py-1.m-3.text-white= "Welcome, "+user
+                if warning 
+                    label.text-danger= warning
+                div
+                    a.btn.btn-primary.px-3.py-1.m-3(href="logout") LOGOUT 
+            h2.text-center.mt-3 List of offers
+            button.btn.btn-success(data-bs-toggle="modal" data-bs-target="#modalAdd") + Add New Offer +
+            table.mt-3.table.table-hover#mytable
+                
+                tbody
+                    each row in rows
+                        tr.d-flex.flex-column.card-body.border.mb-3.bg-light.rounded-3
+                            td.d-flex.flex-row.justify-content-around
+                                span= "Offer by: "+ row.user
+                                h4.fw-bold= row.title
+                                span= "Offer №"+row.id
+                            td.text-center
+                                pre= row.offer
+                            td.text-center
+                                img.img-fluid.rounded-circle.img-thumbnail(src=row.url style="max-width:500px;max-height:300px")
+                            td.d-flex.flex-row.justify-content-around
+                                span="Added on: " + row.date_created
+                                span="Modified on: " + row.date_modified
+                            //if user==row.user
+                            td
+                                div.d-flex.flex-row.justify-content-around
+                                    a.btn.btn-info.edit.px-5(href="javascript:void(0);" data-id=row.id data-title=row.title data-offer=row.offer data-url=row.url) EDIT
+                                    span &nbsp;&nbsp;&nbsp;
+                                    if user==row.user
+                                     a.btn.btn-danger.delete.px-5(href="javascript:void(0);" data-id=row.id) DELETE
 
-let router = express.Router();
+            //modal form ADD - File upload
 
-const fs = require('fs');
+            form(action="/offers/upload" method="post" enctype="multipart/form-data")
+                div.modal.fade#modalAdd(tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true")
+                    div.modal-dialog(role="document")
+                        div.modal-content
+                            div.modal-header
+                                h5.modal-title#exampleModalLabel Add New Offer
+                                button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                            div.modal-body
+                                div.form-group
+                                    textarea.form-control(name="title" placeholder=" Offer title " required)
+                                div.form-group
+                                    textarea.form-control(name="offer" placeholder=" Offer description " required)
+                                div.form-group
+                                    input.form-control(type="file" name="file")
+                            div.modal-footer
+                                button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancel
+                                button.btn.btn-success(type="submit") Save
+            //modal form DELETE
 
-/* GET home page. */
+            form#add-row-form(action="/offers/delete" method="post")
+                div.modal.fade#DeleteModal(tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true")
+                    div.modal-dialog
+                        div.modal-content
+                            div.modal-header
+                                h5.modal-title#modalLabel Delete Confirmation
+                                button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                            div.modal-body
+                                strong Are you sure to delete this task?
+                            div.modal-footer
+                                input.form-control.id(type="hidden" name="id" required)
+                                button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancel
+                                button.btn.btn-danger(type="submit") Delete
+            //modal form EDIT/UPDATE
 
+            form(action="/offers/update" method="post")
+                div.modal.fade#EditModal(tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true")
+                    div.modal-dialog(role="document")
+                        div.modal-content
+                            div.modal-header
+                                h5.modal-title#modalLabel Edit Task
+                                button.btn-close(type="button" data-bs-dismiss="modal" aria-label="Close")
+                            div.modal-body
+                                div.form-group
+                                    textarea.form-control.title(name="title" placeholder=" Your title " required)
+                                div.form-group
+                                    textarea.form-control.offer(name="offer" placeholder=" Your offer description " required)
+                                div.form-group
+                                    input.form-control.url(type="text" name="url" placeholder=" Picture URL ")
+                            div.modal-footer
+                                input.form-control.id(type="hidden" name="id" required)
+                                button.btn.btn-secondary(type="button" data-bs-dismiss="modal") Cancel
+                                button.btn.btn-info(type="submit") Update
+            script(src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js")
+            script.
+                $(document).ready(function(){
+                    //showing modal form DELETE
+                    $('#mytable').on('click','.delete',function(){
+                        $('#DeleteModal').modal('show');
+                        $('.id').val($(this).data('id'));
+                    });                   
 
-//Показване на Login форма
-
-router.get('/login', function(req, res) {
-
-        res.render('login', {info: 'PLEASE LOGIN'});
-
-});
-
-//Създаване на сесия след успешен Login
-
-session = require('express-session'); //Как да намерим информация за този модул?
-
-router.use(session({
-
-    secret: 'random string',
-
-    resave: true,
-
-    saveUninitialized: false,
-
-}));
-
-
-sqlite3 = require('sqlite3');
-db = new sqlite3.Database('todo.sqlitedb');
-db.serialize();
-db.run(`CREATE TABLE IF NOT EXISTS offers(
-    id INTEGER PRIMARY KEY,
-    user TEXT NOT NULL,
-    title TEXT,
-    offer TEXT,
-    url TEXT,
-    date_created TEXT,
-    date_modified TEXT)`
-);
-db.parallelize();
-fileUpload = require('express-fileupload');
-router.use(fileUpload());
-
-
-bcrypt = require('bcryptjs');
-users = require('./passwd.json');
-router.post('/login', function(req, res){
-        bcrypt.compare(req.body.password, users[req.body.username] || "", function(err, is_match) {
-                if(err) throw err;
-                if(is_match === true) {
-                        req.session.username = req.body.username;
-                        req.session.count = 0;
-                        res.redirect("/offers/");
-                } else {
-                        res.render('login', {warn: 'TRY AGAIN'});
-                }
-        });
-});
-
-//Logout - унищожаване на сесия
-
-router.get('/logout', (req, res) => {
-
-        req.session.destroy();
-
-        res.redirect("/offers/");
-
-});
-
-
-router.all('*', function(req, res, next) {
-        if(!req.session.username) {
-                res.redirect("/offers/login");
-                return;
-        }
-        next();
-});
-
-router.get('/', function(req, res, next) {
-        req.session.count++;
-        s = "User: " + req.session.username + " Count: " + req.session.count + " " + new Date();
-        db.all('SELECT * FROM offers ORDER BY date_modified DESC;', function(err, rows) {
-                if(err) throw err;
-                res.render('offers', { info: s, rows: rows, user:req.session.username });
-        });
-});
-
-//CREATErud + Picture upload
-
-router.post('/upload',(req, res) => {
-        url = "";
-        if(req.files && req.files.file) {
-            req.files.file.mv('./public/images/' + req.files.file.name, (err) => {   
-                if (err) throw err;    
-            });   
-            url = '/images/' + req.files.file.name;  
-        }           
-    
-        db.run(`    
-            INSERT INTO offers(    
-                user,    
-                title,
-                offer,    
-                url,    
-                date_created,    
-                date_modified    
-            ) VALUES (    
-                ?,    
-                ?,    
-                ?,
-                ?,    
-                DATETIME('now','localtime'),    
-                DATETIME('now','localtime'));    
-            `,    
-            [req.session.username, req.body.title || "",req.body.offer || "", url],
-                (err) => {
-                    if(err) throw err;
-                    res.redirect('/offers/');
-                }
-        );
-});
-//cruDELETE
-
-router.post('/delete', (req, res) => {
-        db.all('SELECT * FROM offers WHERE id=? and user=?;', req.body.id, req.session.username, function(err, rows) {
-                if(err) throw err;
-                if(rows.length>0){
-                        db.run('DELETE FROM offers WHERE id = ?', req.body.id, (err) => {
-                        if(err) throw err;
-                        res.redirect('/offers/');
-                        });
-                }
-                else{
-                        db.all('SELECT * FROM offers ORDER BY date_modified DESC;', function(err, rows) {
-                                if(err) throw err;
-                                res.render('offers', { warning: "ACCESS DENIED", rows: rows, user:req.session.username });
-                        });
-                }
-        });
-        
-        
-        
-});
-//crUPDATEd
-router.post('/update', (req, res) => {
-
-        db.all('SELECT * FROM offers WHERE id=? and user=?;', req.body.id, req.session.username, function(err, rows) {
-                if(err) throw err;
-                if(rows.length>0){
-                        db.run(`UPDATE offers
-                        SET user = ?,
-                        title = ?,
-                        offer = ?,
-                        url = ?,
-                        date_modified = DATETIME('now','localtime')
-                        WHERE id = ?;`,
-                        req.session.username,
-                        req.body.title,
-                        req.body.offer,
-                        req.body.url,
-                        req.body.id,
-                        (err) => {
-                                if(err) throw err;
-                                res.redirect('/offers/');
-                        });
-                }
-                else{
-                        db.all('SELECT * FROM offers ORDER BY date_modified DESC;', function(err, rows) {
-                                if(err) throw err;
-                                res.render('offers', { warning: "ACCESS DENIED", rows: rows, user:req.session.username });
-                        });
-                }
-        });
-
-        
-});
-
-router.all('*', function(req, res) {
-        res.send("No such page or action! Go to: <a href='/offers/'>main page</a>");
-});
-
-module.exports = router;
+                    //showing modal form EDIT
+                    $('#mytable').on('click','.edit',function(){
+                        $('#EditModal').modal('show');
+                        $('.id').val($(this).data('id'));
+                        $('.title').val($(this).data('title'));
+                        $('.offer').val($(this).data('offer'));
+                        $('.url').val($(this).data('url'));
+                    });                
+                });
+            hr.mx-auto(width="80%")

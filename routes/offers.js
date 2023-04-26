@@ -6,7 +6,6 @@ const fs = require('fs');
 
 /* GET home page. */
 
-//let todo = new Array();
 
 //Показване на Login форма
 
